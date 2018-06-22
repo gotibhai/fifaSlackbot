@@ -1,0 +1,10 @@
+{application,messi,
+             [{applications,[kernel,stdlib,elixir,logger,slack,
+                             websocket_client]},
+              {description,"messi"},
+              {modules,['Elixir.Messi','Elixir.Messi.Application',
+                        'Elixir.Messi.Slack']},
+              {registered,[]},
+              {vsn,"0.1.0"},
+              {extra_applications,[logger,slack]},
+              {mod,{'Elixir.Messi.Application',[]}}]}.
