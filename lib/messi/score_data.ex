@@ -3,10 +3,10 @@ defmodule Messi.ScoreData do
   @expected_fields ~w(home_team away_team home_team_events away_team_events)
   @timeout 10000
 
-  defstruct old_events: [], new_events: [], home_team: "", away_team: ""
+  defstruct last_event: 0, new_events: [], home_team: "", away_team: ""
 
   def fetchData() do
-    case HTTPoison.get("http://worldcup.sfg.io/matches/today") do
+    case HTTPoison.get("http://worldcup.sfg.io/matches/current") do
       {:ok, %HTTPoison.Response{status_code: 200, body: body}} ->
         body
       {:ok, %HTTPoison.Response{status_code: 404}} ->
@@ -17,26 +17,32 @@ defmodule Messi.ScoreData do
   end
 
   def process_response_body(body) do
-    body
+    body = body
       |> Poison.decode!
       |> List.first
-      |> Map.take(@expected_fields)
+    case body do
+      nil -> nil
+      _   ->  Map.take(body, @expected_fields)
+    end
   end
 
   def handle_call(:getData, _from,  %__MODULE__{
-    old_events: old_events, new_events: new_events,
+    last_event: last_event, new_events: new_events,
     home_team: home_team, away_team: away_team
    } = state) do
-    data = fetchData() |> process_response_body
-    home_team = data["home_team"]["country"]
-    away_team = data["away_team"]["country"]
-    all_new_events = data["away_team_events"] ++ data["home_team_events"]
-    state = state
-    |> Map.put(:new_events, all_new_events)
-    |> Map.put(:home_team, home_team)
-    |> Map.put(:away_team, away_team)
-    IO.inspect state
-    {:reply, all_new_events, state}
+    case data = fetchData() |> process_response_body do
+      nil -> {:reply, [], state}
+      _ -> IO.inspect "Match is going on :D"
+          home_team = data["home_team"]["country"]
+          away_team = data["away_team"]["country"]
+          all_new_events = data["away_team_events"] ++ data["home_team_events"]
+          state = state
+          |> Map.put(:new_events, all_new_events)
+          |> Map.put(:home_team, home_team)
+          |> Map.put(:away_team, away_team)
+          {:reply, all_new_events, state}
+    end
+
   end
 
   def getData() do
@@ -48,19 +54,49 @@ defmodule Messi.ScoreData do
   end
 
   def handle_call(:updateEvents, _from,
-    %__MODULE__{ old_events: old_events, new_events: new_events,
+    %__MODULE__{ last_event: last_event, new_events: new_events,
     home_team: home_team, away_team: away_team
     } = state) do
-    old_events = old_events ++ new_events
+    new_filtered_events = get_new_events(last_event, new_events)
+    send_notifications(new_filtered_events)
+    last_event = get_last_event(last_event, new_filtered_events)
     state = state
-    |> Map.put(:old_events, old_events)
-    {:noreply, state}
+    |> Map.put(:new_events, new_filtered_events)
+    |> Map.put(:last_event, last_event)
+    {:reply, last_event, state}
+  end
+
+  def send_notifications(events) do
+    Enum.each(events, fn(x) -> process_event(x) end)
+  end
+
+  def process_event(event) do
+    case event["type_of_event"] do
+      "substitution-in" -> postData("#{event["player"]} substituted in")
+      "substitution-out" -> postData("#{event["player"]} substituted out")
+      "yellow-card" -> postData("#{event["player"]} got a yellow card")
+      "red-card" -> postData("#{event["player"]} got a red card")
+      "goal-penalty" -> postData("#{event["player"]} scored a penalty!")
+      "goal" -> postData("#{event["player"]} SCORED #{event["time"]} minute")
+      _ -> IO.inspect "Haven't handled #{event["type_of_event"]} yet!"
+    end
+  end
+
+  def get_new_events(last_event, new_events) do
+    new_filtered_events = new_events
+      |> Enum.filter(fn(x) -> x and x["id"] > last_event end)
+  end
+
+  def get_last_event(last_event, new_filtered_events) do
+    max_new_event = new_filtered_events
+      |> Enum.map(fn(x) -> x["id"] end)
+      |> IO.inspect
+      |> Enum.max(fn -> 0 end)
+    Enum.max([last_event, max_new_event])
   end
 
   def updateState() do
     getData()
-    # |> Enum.map(fn({k, v}) -> {String.to_atom(k), v} end)
-    # |> Enum.into(%{})
     updateEvents()
   end
 
@@ -84,8 +120,8 @@ defmodule Messi.ScoreData do
 
   def init(_args) do
     state = %__MODULE__{
-     old_events: ["old"],
-     new_events: ["new"],
+     last_event: 0,
+     new_events: [],
      home_team: "",
      away_team: ""
     }

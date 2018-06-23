@@ -9,9 +9,8 @@ defmodule Messi.Poll do
   def poll() do
     receive do
     after
-      30_000 ->
-        #ScoreData.fetchData()
-        printData()
+      10_000 ->
+        ScoreData.updateState()
         poll()
     end
   end
