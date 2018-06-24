@@ -31,5 +31,3 @@ defmodule Messi.MixProject do
     ]
   end
 end
-
-#Messi.ScoreData.getData
