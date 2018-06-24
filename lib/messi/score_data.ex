@@ -84,7 +84,7 @@ defmodule Messi.ScoreData do
 
   def get_new_events(last_event, new_events) do
     new_filtered_events = new_events
-      |> Enum.filter(fn(x) -> x and x["id"] > last_event end)
+      |> Enum.filter(fn(x) -> is_map(x) and x["id"] > last_event end)
   end
 
   def get_last_event(last_event, new_filtered_events) do
