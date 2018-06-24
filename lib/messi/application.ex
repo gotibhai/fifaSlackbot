@@ -9,7 +9,7 @@ defmodule Messi.Application do
     # List all child processes to be supervised
     import Supervisor.Spec
     children = [
-      Plug.Adapters.Cowboy.child_spec(:http, Messi.Router, [], port: 8080),
+      Plug.Adapters.Cowboy.child_spec(:http, Messi.Router, [], port: (System.get_env("PORT")) || 8080),
       worker(Messi.ScoreData,[]),
       worker(Messi.Poll, [])
     ]
