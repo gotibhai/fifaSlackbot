@@ -6,7 +6,7 @@ defmodule Messi.ScoreData do
   defstruct last_event: 0, new_events: [], home_team: "", away_team: ""
 
   def fetchData() do
-    case HTTPoison.get("http://worldcup.sfg.io/matches/current") do
+    case HTTPoison.get("http://worldcup.sfg.io/matches/today") do
       {:ok, %HTTPoison.Response{status_code: 200, body: body}} ->
         body
       {:ok, %HTTPoison.Response{status_code: 404}} ->

@@ -14,8 +14,4 @@ defmodule Messi.Poll do
         poll()
     end
   end
-
-  def printData() do
-    IO.inspect "Hello..."
-  end
 end
